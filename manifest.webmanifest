@@ -1,0 +1,10 @@
+{
+  "name": "Calabash Lab 创业看板",
+  "short_name": "创业看板",
+  "description": "夫妻档创业任务看板 + 奖励机制",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0f1419",
+  "theme_color": "#e8703a",
+  "icons": []
+}

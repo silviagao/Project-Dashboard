@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Calabash Lab 创业看板</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header>
+    <div class="h-row">
+      <div class="brand">
+        <span class="logo">🥒</span>
+        <div>
+          <h1>Calabash Lab</h1>
+          <p class="sub">夫妻创业 · 周计划看板</p>
+        </div>
+      </div>
+      <div class="h-right">
+        <span id="weekLabel" class="week-label"></span>
+        <div class="id-box" id="idBox">
+          <span class="id-tip">我是</span>
+          <button class="id" data-id="Silvia">Silvia</button>
+          <button class="id" data-id="Haihong">Haihong</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div id="reminderWrap"></div>
+  <div class="reward-bar" id="reward"></div>
+
+  <nav class="tabs">
+    <button class="tab active" data-view="week">📅 周视图</button>
+    <button class="tab" data-view="todo">👤 我的 To Do</button>
+    <button class="tab" data-view="board">🗂 看板</button>
+  </nav>
+
+  <div class="toolbar">
+    <button class="btn" id="btnAdd">＋ 新建任务</button>
+    <button class="btn ghost" id="btnMarket">生成本轮集市任务</button>
+    <select id="projFilter" class="sel" style="margin-left:auto;">
+      <option>全部</option>
+      <option>Calabash Lab</option>
+      <option>炸鸡店(研究)</option>
+    </select>
+  </div>
+
+  <main id="main"></main>
+
+  <div class="foot">每周例会领任务 → 周中填进度 → 系统提醒 → 下周复盘 ｜ 奖励：共同创业币 + 里程碑 + 连续推进</div>
+
+  <div class="modal-bg" id="modal">
+    <div class="modal">
+      <h3 id="modalTitle">任务</h3>
+      <div class="field"><label>标题</label><input type="text" id="mTitle" placeholder="例如：完成 SKU 编码规则"></div>
+      <div class="field"><label>项目</label>
+        <select id="mProject"><option>Calabash Lab</option><option>炸鸡店(研究)</option></select>
+      </div>
+      <div class="field"><label>负责人</label>
+        <select id="mOwner"><option>共同</option><option>Silvia</option><option>Haihong</option></select>
+      </div>
+      <div class="field"><label>状态</label>
+        <select id="mStatus"><option>待分配池</option><option>本周进行中</option><option>卡点</option><option>已完成</option></select>
+      </div>
+      <div class="field"><label>截止日期</label><input type="date" id="mDue"></div>
+      <div class="field"><label>里程碑（可选）</label>
+        <select id="mMilestone"><option value="">无</option><option value="SKU">SKU体系上线</option><option value="社媒">社媒破粉</option><option value="网站">网站上线</option></select>
+      </div>
+      <div class="field"><label>卡点原因</label><input type="text" id="mBlocker" placeholder="卡住的原因"></div>
+      <div class="field"><label>备注</label><textarea id="mNote" placeholder="补充信息"></textarea></div>
+      <div class="acts">
+        <button class="btn ghost" id="modalCancel">取消</button>
+        <button class="btn" id="modalSave">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
