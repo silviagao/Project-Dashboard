@@ -33,3 +33,27 @@ create policy "allow all tasks" on tasks for all using (true) with check (true);
 
 drop policy if exists "allow all meta" on meta;
 create policy "allow all meta" on meta for all using (true) with check (true);
+
+-- 集市：一场集市 = 一个事件（日期/地点/状态），其筹备工作以 checklist(jsonb) 内嵌，
+-- 不再拆成独立任务卡片。status: 商榷中 / 已申请。
+create table if not exists markets (
+  id          uuid primary key default gen_random_uuid(),
+  title       text not null,
+  event_date  date,
+  location    text default '',
+  status      text not null default '商榷中',
+  checklist   jsonb not null default '[
+    {"n":"找场地 / 预约","done":false},
+    {"n":"前一晚：上货充电收拾","done":false},
+    {"n":"当天：摆货","done":false},
+    {"n":"推销介绍","done":false},
+    {"n":"收钱结账算账","done":false}
+  ]'::jsonb,
+  note        text default '',
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+alter table markets enable row level security;
+drop policy if exists "allow all markets" on markets;
+create policy "allow all markets" on markets for all using (true) with check (true);

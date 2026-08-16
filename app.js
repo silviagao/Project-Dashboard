@@ -1,13 +1,19 @@
 /* Calabash Lab 创业看板 —— 前端逻辑
    数据层：配置 Supabase 后用云端（两人实时同步），否则自动降级为本地 localStorage 预览。
-   视图：周视图（日历/时间表）｜ 我的 To Do ｜ 看板 */
+   视图：周视图（日历/时间表）｜ 我的 To Do ｜ 看板 ｜ 集市日历 */
 
 const OWNERS = ["Silvia", "Haihong", "共同"];
 const PROJECTS = ["Calabash Lab", "炸鸡店(研究)"];
 const STATUSES = ["待分配池", "本周进行中", "卡点", "已完成"];
 const MILESTONES = { SKU: "SKU体系上线", 社媒: "社媒破粉", 网站: "网站上线" };
-const MARKET_STEPS = ["找场地 / 预约", "前一晚：上货充电收拾", "当天：摆货", "推销介绍", "收钱结账算账"];
 const WD = ["一", "二", "三", "四", "五", "六", "日"];
+const DEFAULT_CHECKLIST = [
+  { n: "找场地 / 预约", done: false },
+  { n: "前一晚：上货充电收拾", done: false },
+  { n: "当天：摆货", done: false },
+  { n: "推销介绍", done: false },
+  { n: "收钱结账算账", done: false }
+];
 
 const cfg = window.APP_CONFIG || {};
 const useCloud = !!(cfg.SUPABASE_URL && cfg.SUPABASE_URL.startsWith("http") &&
@@ -16,6 +22,7 @@ let sb = null;
 if (useCloud) sb = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
 
 let tasks = [];
+let markets = [];
 let metaCache = null;
 let identity = localStorage.getItem("identity") || "Silvia";
 let currentView = "week";
@@ -41,7 +48,7 @@ function weekRange(off) { const m = mondayOf(new Date()); const s = addDays(m, o
 function esc(s) { return (s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 1800); }
 
-/* ---------- 数据层 ---------- */
+/* ---------- 数据层：tasks ---------- */
 async function loadTasks() {
   if (useCloud) { const { data, error } = await sb.from("tasks").select("*").order("created_at", { ascending: false }); if (error) throw error; return data || []; }
   return JSON.parse(localStorage.getItem("tasks") || "[]");
@@ -87,25 +94,75 @@ async function markDone(id) {
   try { await saveTask(t); await refresh(); toast("已完成 🎉 创业币 +1"); } catch (e) { toast("保存失败: " + e.message); }
 }
 
-/* 首次运行预置真实任务，避免空板只显示集市 */
+/* ---------- 数据层：markets ---------- */
+async function loadMarkets() {
+  if (useCloud) { const { data, error } = await sb.from("markets").select("*"); if (error) throw error; return data || []; }
+  return JSON.parse(localStorage.getItem("markets") || "[]");
+}
+async function persistMarket(m) {
+  if (useCloud) {
+    if (m.id) { const { id, ...rest } = m; const { error } = await sb.from("markets").update(rest).eq("id", id); if (error) throw error; return m; }
+    const { id, ...rest } = m; const { data, error } = await sb.from("markets").insert(rest).select(); if (error) throw error; return data[0];
+  }
+  let list = JSON.parse(localStorage.getItem("markets") || "[]");
+  if (m.id) list = list.map(x => x.id === m.id ? { ...x, ...m } : x);
+  else { m.id = "localm_" + Date.now() + Math.random().toString(36).slice(2); list.push(m); }
+  localStorage.setItem("markets", JSON.stringify(list)); return m;
+}
+async function deleteMarket(id) {
+  if (useCloud) { const { error } = await sb.from("markets").delete().eq("id", id); if (error) throw error; }
+  else { let list = JSON.parse(localStorage.getItem("markets") || "[]"); list = list.filter(x => x.id !== id); localStorage.setItem("markets", JSON.stringify(list)); }
+}
+
+/* ---------- 首次运行预置（建议明细，可增减） ---------- */
 async function seedIfEmpty() {
   const existing = await loadTasks();
   if (existing.length > 0) return;
-  const wk1 = nextMarketDate();
+  const d = dateStr;
   const seeds = [
-    { project: "Calabash Lab", title: "存货 SKU 体系搭建（盘点+编码+台账）", owner: "Haihong", status: "本周进行中", progress: 10, due: dateStr(5), milestone: "SKU", note: "Silvia 定规则框架，Haihong 主建" },
-    { project: "Calabash Lab", title: "社媒账号搭建与内容规划（IG/TikTok）", owner: "Silvia", status: "本周进行中", progress: 5, due: dateStr(6), milestone: "社媒" },
-    { project: "Calabash Lab", title: "网站信息架构与设计稿（MVP 展示站）", owner: "共同", status: "待分配池", progress: 0, due: dateStr(12), milestone: "网站" },
-    { project: "Calabash Lab", title: "集市：" + MARKET_STEPS[0], owner: "共同", status: "待分配池", progress: 0, due: wk1 },
-    { project: "Calabash Lab", title: "集市：" + MARKET_STEPS[1], owner: "共同", status: "待分配池", progress: 0, due: wk1 },
-    { project: "Calabash Lab", title: "集市：" + MARKET_STEPS[2], owner: "共同", status: "待分配池", progress: 0, due: wk1 },
-    { project: "Calabash Lab", title: "集市：" + MARKET_STEPS[3], owner: "共同", status: "待分配池", progress: 0, due: wk1 },
-    { project: "Calabash Lab", title: "集市：" + MARKET_STEPS[4], owner: "共同", status: "待分配池", progress: 0, due: wk1 },
-    { project: "炸鸡店(研究)", title: "炸鸡配方初步研发（第一轮试验）", owner: "Haihong", status: "待分配池", progress: 0, due: dateStr(9) },
-    { project: "炸鸡店(研究)", title: "市场/竞品调研（定价与空白点）", owner: "Silvia", status: "待分配池", progress: 0, due: dateStr(10) },
-    { project: "炸鸡店(研究)", title: "商业计划 / 资金 / 合规初步", owner: "Silvia", status: "待分配池", progress: 0, due: dateStr(14) }
+    // —— SKU 体系（建议明细，owner 可改、可增删）——
+    { project: "Calabash Lab", title: "SKU-1 盘点现有存货（厂家/型号/数量/进货成本清单）", owner: "Haihong", status: "本周进行中", progress: 10, due: d(3), milestone: "SKU", note: "Silvia 定规则框架，Haihong 主建" },
+    { project: "Calabash Lab", title: "SKU-2 定编码规则（如 CL-RC-001-R）", owner: "Haihong", status: "待分配池", progress: 0, due: d(4), milestone: "SKU" },
+    { project: "Calabash Lab", title: "SKU-3 定数据结构（SKU/名称/厂家/进货价/数量/库位/状态/图片）", owner: "共同", status: "待分配池", progress: 0, due: d(5), milestone: "SKU" },
+    { project: "Calabash Lab", title: "SKU-4 搭建库存台账骨架（Sheets 或看板模块）", owner: "Haihong", status: "待分配池", progress: 0, due: d(7), milestone: "SKU" },
+    { project: "Calabash Lab", title: "SKU-5 录入首批存货数据", owner: "Haihong", status: "待分配池", progress: 0, due: d(9), milestone: "SKU" },
+    { project: "Calabash Lab", title: "SKU-6 设补货触发（低于阈值标“该补货”）", owner: "Haihong", status: "待分配池", progress: 0, due: d(11), milestone: "SKU" },
+    { project: "Calabash Lab", title: "SKU-7 与销售联动（集市卖出扣库存、算账）", owner: "共同", status: "待分配池", progress: 0, due: d(13), milestone: "SKU" },
+    { project: "Calabash Lab", title: "SKU-8 周度库存复盘（准确率、周转率）", owner: "共同", status: "待分配池", progress: 0, due: d(15), milestone: "SKU" },
+    // —— 社媒推广 ——
+    { project: "Calabash Lab", title: "社媒-1 定平台与定位（IG/TikTok/FB/小红书 + 内容调性）", owner: "Silvia", status: "本周进行中", progress: 5, due: d(3), milestone: "社媒" },
+    { project: "Calabash Lab", title: "社媒-2 账号搭建（注册完善主页、简介、链接）", owner: "Silvia", status: "待分配池", progress: 0, due: d(5), milestone: "社媒" },
+    { project: "Calabash Lab", title: "社媒-3 内容规划（栏目化 + 内容日历）", owner: "Silvia", status: "待分配池", progress: 0, due: d(7), milestone: "社媒" },
+    { project: "Calabash Lab", title: "社媒-4 制作首批内容（手机拍剪 N 条）", owner: "Silvia", status: "待分配池", progress: 0, due: d(9), milestone: "社媒" },
+    { project: "Calabash Lab", title: "社媒-5 发布节奏（每周 X 条，定谁拍/剪/发）", owner: "共同", status: "待分配池", progress: 0, due: d(11), milestone: "社媒" },
+    { project: "Calabash Lab", title: "社媒-6 互动涨粉（回评论、现场引导关注）", owner: "Silvia", status: "待分配池", progress: 0, due: d(13), milestone: "社媒" },
+    { project: "Calabash Lab", title: "社媒-7 数据复盘（周看粉增/互动，调内容）", owner: "Silvia", status: "待分配池", progress: 0, due: d(15), milestone: "社媒" },
+    { project: "Calabash Lab", title: "社媒-8 引流销售（主页挂购买/集市/网站入口）", owner: "共同", status: "待分配池", progress: 0, due: d(17), milestone: "社媒" },
+    // —— 网站搭建 ——
+    { project: "Calabash Lab", title: "网站-1 定目标与范围（展示站 vs 电商站 MVP）", owner: "共同", status: "待分配池", progress: 0, due: d(6), milestone: "网站" },
+    { project: "Calabash Lab", title: "网站-2 选技术（静态站 + 免费托管）", owner: "Haihong", status: "待分配池", progress: 0, due: d(8), milestone: "网站" },
+    { project: "Calabash Lab", title: "网站-3 信息架构（首页/产品/关于/购买指引/联系）", owner: "Silvia", status: "待分配池", progress: 0, due: d(10), milestone: "网站" },
+    { project: "Calabash Lab", title: "网站-4 设计稿（布局草图、配色、移动端）", owner: "共同", status: "待分配池", progress: 0, due: d(12), milestone: "网站" },
+    { project: "Calabash Lab", title: "网站-5 开发页面（搭页面 + 产品展示 + 表单）", owner: "Haihong", status: "待分配池", progress: 0, due: d(16), milestone: "网站" },
+    { project: "Calabash Lab", title: "网站-6 内容填充（产品图、文案，从社媒拉素材）", owner: "Silvia", status: "待分配池", progress: 0, due: d(18), milestone: "网站" },
+    { project: "Calabash Lab", title: "网站-7 部署上线（绑域名可选 + 免费托管）", owner: "Haihong", status: "待分配池", progress: 0, due: d(21), milestone: "网站" },
+    { project: "Calabash Lab", title: "网站-8 推广接入（社媒↔网站互链、集市二维码）", owner: "共同", status: "待分配池", progress: 0, due: d(23), milestone: "网站" },
+    { project: "Calabash Lab", title: "网站-9 维护机制（谁更新、频率）", owner: "共同", status: "待分配池", progress: 0, due: d(25), milestone: "网站" },
+    // —— 炸鸡店（研究）——
+    { project: "炸鸡店(研究)", title: "炸鸡配方初步研发（第一轮试验）", owner: "Haihong", status: "待分配池", progress: 0, due: d(9) },
+    { project: "炸鸡店(研究)", title: "市场/竞品调研（定价与空白点）", owner: "Silvia", status: "待分配池", progress: 0, due: d(10) },
+    { project: "炸鸡店(研究)", title: "商业计划 / 资金 / 合规初步", owner: "Silvia", status: "待分配池", progress: 0, due: d(14) }
   ];
   for (const s of seeds) await persist(s);
+}
+async function seedMarketsIfEmpty() {
+  const existing = await loadMarkets();
+  if (existing.length > 0) return;
+  const seeds = [
+    { title: "市中心周末集市（意向，待定日期）", event_date: null, location: "", status: "商榷中", checklist: JSON.parse(JSON.stringify(DEFAULT_CHECKLIST)) },
+    { title: "Avondale 夜市", event_date: nextMarketDate(), location: "Avondale", status: "已申请", checklist: JSON.parse(JSON.stringify(DEFAULT_CHECKLIST)) }
+  ];
+  for (const s of seeds) await persistMarket(s);
 }
 
 /* ---------- 渲染：奖励 / 提醒 ---------- */
@@ -215,6 +272,39 @@ function renderBoard() {
   }).join("") + `</div>`;
 }
 
+/* ---------- 渲染：集市日历 ---------- */
+function marketCard(m) {
+  const cl = (m.checklist || []).map((c, i) => `<label class="mck ${c.done ? "done" : ""}"><input type="checkbox" data-mact="check" data-mid="${m.id}" data-idx="${i}" ${c.done ? "checked" : ""}><span>${esc(c.n)}</span></label>`).join("");
+  const doneN = (m.checklist || []).filter(c => c.done).length;
+  const total = (m.checklist || []).length;
+  return `<div class="mcard" data-mid="${m.id}">
+    <div class="mc-top">
+      <input class="mc-title" data-mact="title" data-mid="${m.id}" value="${esc(m.title)}">
+      <button class="btn small ghost" data-mact="del" data-mid="${m.id}">删除</button>
+    </div>
+    <div class="mc-meta">
+      <label>日期<input type="date" data-mact="date" data-mid="${m.id}" value="${m.event_date || ""}"></label>
+      <label>状态<select data-mact="status" data-mid="${m.id}"><option ${m.status === "商榷中" ? "selected" : ""}>商榷中</option><option ${m.status === "已申请" ? "selected" : ""}>已申请</option></select></label>
+      <label>地点<input data-mact="loc" data-mid="${m.id}" value="${esc(m.location || "")}" placeholder="地点"></label>
+    </div>
+    <div class="mc-prog">筹备进度 ${doneN}/${total}</div>
+    <div class="mc-check">${cl}</div>
+    <div class="mc-add"><input id="newItem_${m.id}" placeholder="添加筹备项…"><button class="btn small" data-mact="additem" data-mid="${m.id}">＋</button></div>
+  </div>`;
+}
+function renderMarket() {
+  const pending = markets.filter(m => m.status === "商榷中" || !m.event_date);
+  const applied = markets.filter(m => m.status === "已申请" && m.event_date).sort((a, b) => (a.event_date || "").localeCompare(b.event_date || ""));
+  const pHTML = pending.length ? pending.map(marketCard).join("") : '<div class="empty">暂无商榷中的集市</div>';
+  const aHTML = applied.length ? applied.map(marketCard).join("") : '<div class="empty">暂无已申请的集市，点右上角“＋ 新增集市”</div>';
+  return `<div class="market-view">
+    <div class="mv-head"><h3>🟡 商榷中的集市（清单）</h3></div>
+    <div class="market-list pending">${pHTML}</div>
+    <div class="mv-head"><h3>🟢 已申请的集市（按日期排）</h3><button class="btn small" id="addMarket">＋ 新增集市</button></div>
+    <div class="market-list cal">${aHTML}</div>
+  </div>`;
+}
+
 /* ---------- 总渲染 ---------- */
 function render() {
   document.getElementById("reward").innerHTML = rewardHTML();
@@ -223,14 +313,14 @@ function render() {
   const main = document.getElementById("main");
   if (currentView === "week") main.innerHTML = renderWeek();
   else if (currentView === "todo") main.innerHTML = renderMyTodo();
+  else if (currentView === "market") main.innerHTML = renderMarket();
   else main.innerHTML = renderBoard();
   document.getElementById("weekLabel").textContent = "本周 " + isoWeek(new Date());
 }
-async function refresh() { tasks = await loadTasks(); metaCache = await getMeta(); render(); }
+async function refresh() { tasks = await loadTasks(); markets = await loadMarkets(); metaCache = await getMeta(); render(); }
 
-/* ---------- 交互 ---------- */
+/* ---------- 交互：身份 / tab / 过滤器 ---------- */
 document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => { currentView = b.dataset.view; render(); }));
-
 document.getElementById("idBox").addEventListener("click", e => {
   const b = e.target.closest("button.id"); if (!b) return;
   identity = b.dataset.id; localStorage.setItem("identity", identity);
@@ -239,11 +329,13 @@ document.getElementById("idBox").addEventListener("click", e => {
 });
 document.getElementById("projFilter").addEventListener("change", render);
 
+/* ---------- 交互：main 内的任务勾选 / 卡片编辑 ---------- */
 document.getElementById("main").addEventListener("change", async e => {
-  const cb = e.target.closest("input[data-complete]"); if (!cb) return;
-  if (cb.checked) await markDone(cb.dataset.complete);
+  const mEl = e.target.closest("[data-mact]"); if (mEl) { await handleMarketChange(mEl); return; }
+  const cb = e.target.closest("input[data-complete]"); if (cb) { if (cb.checked) await markDone(cb.dataset.complete); }
 });
 document.getElementById("main").addEventListener("input", async e => {
+  const mEl = e.target.closest("[data-mact]"); if (mEl) { await handleMarketInput(mEl, e.target); return; }
   const card = e.target.closest(".card"); if (!card) return;
   const f = e.target.dataset.f; if (!f) return;
   const t = tasks.find(x => x.id === card.dataset.id); if (!t) return;
@@ -252,6 +344,8 @@ document.getElementById("main").addEventListener("input", async e => {
   try { await saveTask(t); await refresh(); toast("已保存"); } catch (err) { toast("保存失败: " + err.message); }
 });
 document.getElementById("main").addEventListener("click", async e => {
+  if (e.target.id === "addMarket") { openMarketModal(); return; }
+  const mEl = e.target.closest("[data-mact]"); if (mEl) { await handleMarketClick(mEl); return; }
   const btn = e.target.closest("button[data-act]"); if (!btn) return;
   const card = e.target.closest(".card"); const t = tasks.find(x => x.id === card.dataset.id); if (!t) return;
   const act = btn.dataset.act;
@@ -261,14 +355,34 @@ document.getElementById("main").addEventListener("click", async e => {
   if (act === "edit") openModal(t);
 });
 
-document.getElementById("btnAdd").addEventListener("click", () => openModal(null));
-document.getElementById("btnMarket").addEventListener("click", async () => {
-  const due = nextMarketDate();
-  for (const step of MARKET_STEPS) await persist({ project: "Calabash Lab", title: "集市：" + step, owner: "共同", status: "待分配池", progress: 0, due, milestone: null });
-  await refresh(); toast("已生成本轮集市 5 项任务");
-});
+/* ---------- 集市交互处理 ---------- */
+async function getMarket(id) { return markets.find(x => x.id === id); }
+async function handleMarketClick(el) {
+  const id = el.dataset.mid; const act = el.dataset.mact;
+  const m = await getMarket(id); if (!m) return;
+  if (act === "del") { if (confirm("删除该集市？")) { await deleteMarket(id); await refresh(); toast("已删除"); } }
+  if (act === "additem") {
+    const inp = document.getElementById("newItem_" + id); const v = (inp.value || "").trim();
+    if (!v) return;
+    m.checklist = m.checklist || []; m.checklist.push({ n: v, done: false });
+    await persistMarket(m); await refresh();
+  }
+}
+async function handleMarketChange(el) {
+  const id = el.dataset.mid; const act = el.dataset.mact;
+  const m = await getMarket(id); if (!m) return;
+  if (act === "check") { const idx = +el.dataset.idx; m.checklist[idx].done = el.checked; await persistMarket(m); await refresh(); }
+  if (act === "status") { m.status = el.value; await persistMarket(m); await refresh(); }
+  if (act === "date") { m.event_date = el.value || null; await persistMarket(m); await refresh(); }
+}
+async function handleMarketInput(el) {
+  const id = el.dataset.mid; const act = el.dataset.mact;
+  const m = await getMarket(id); if (!m) return;
+  if (act === "title") { m.title = el.value; await persistMarket(m); }
+  if (act === "loc") { m.location = el.value; await persistMarket(m); }
+}
 
-/* ---------- 模态框 ---------- */
+/* ---------- 任务模态框 ---------- */
 let editingId = "";
 function openModal(t) {
   const m = document.getElementById("modal");
@@ -302,10 +416,35 @@ document.getElementById("modalSave").addEventListener("click", async () => {
   document.getElementById("modal").classList.remove("show"); await refresh(); toast("已保存");
 });
 
+/* ---------- 集市模态框 ---------- */
+function openMarketModal() {
+  document.getElementById("marketModal").classList.add("show");
+  document.getElementById("mkTitle").value = "";
+  document.getElementById("mkDate").value = nextMarketDate();
+  document.getElementById("mkLoc").value = "";
+  document.getElementById("mkStatus").value = "商榷中";
+}
+document.getElementById("mkCancel").addEventListener("click", () => document.getElementById("marketModal").classList.remove("show"));
+document.getElementById("mkSave").addEventListener("click", async () => {
+  const title = document.getElementById("mkTitle").value.trim();
+  if (!title) { toast("请填写集市名称"); return; }
+  const m = {
+    title,
+    event_date: document.getElementById("mkDate").value || null,
+    location: document.getElementById("mkLoc").value.trim(),
+    status: document.getElementById("mkStatus").value,
+    checklist: JSON.parse(JSON.stringify(DEFAULT_CHECKLIST))
+  };
+  await persistMarket(m);
+  document.getElementById("marketModal").classList.remove("show");
+  if (currentView !== "market") { currentView = "market"; }
+  await refresh(); toast("已新增集市");
+});
+
 /* ---------- 启动 ---------- */
 (async function init() {
   document.querySelectorAll("#idBox button.id").forEach(b => b.classList.toggle("active", b.dataset.id === identity));
   if (useCloud) toast("云端模式：数据实时同步"); else toast("本地预览模式：填 config.js 接入 Supabase");
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
-  try { await seedIfEmpty(); await refresh(); } catch (e) { toast("加载失败: " + e.message); }
+  try { await seedIfEmpty(); await seedMarketsIfEmpty(); await refresh(); } catch (e) { toast("加载失败: " + e.message); }
 })();

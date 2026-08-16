@@ -39,11 +39,11 @@
     <button class="tab active" data-view="week">📅 周视图</button>
     <button class="tab" data-view="todo">👤 我的 To Do</button>
     <button class="tab" data-view="board">🗂 看板</button>
+    <button class="tab" data-view="market">📍 集市日历</button>
   </nav>
 
   <div class="toolbar">
     <button class="btn" id="btnAdd">＋ 新建任务</button>
-    <button class="btn ghost" id="btnMarket">生成本轮集市任务</button>
     <select id="projFilter" class="sel" style="margin-left:auto;">
       <option>全部</option>
       <option>Calabash Lab</option>
@@ -82,6 +82,22 @@
   </div>
 
   <div class="toast" id="toast"></div>
+
+  <div class="modal-bg" id="marketModal">
+    <div class="modal">
+      <h3>新增集市</h3>
+      <div class="field"><label>名称</label><input id="mkTitle" placeholder="例如：Avondale 夜市"></div>
+      <div class="field"><label>日期</label><input type="date" id="mkDate"></div>
+      <div class="field"><label>地点</label><input id="mkLoc" placeholder="地点"></div>
+      <div class="field"><label>状态</label>
+        <select id="mkStatus"><option>商榷中</option><option>已申请</option></select>
+      </div>
+      <div class="acts">
+        <button class="btn ghost" id="mkCancel">取消</button>
+        <button class="btn" id="mkSave">保存</button>
+      </div>
+    </div>
+  </div>
 
   <script src="config.js"></script>
   <script src="app.js"></script>
