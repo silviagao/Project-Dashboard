@@ -25,7 +25,7 @@ let tasks = [];
 let markets = [];
 let metaCache = null;
 let identity = localStorage.getItem("identity") || "Silvia";
-let currentView = "week";
+let currentView = "overview";
 
 /* ---------- 工具函数 ---------- */
 function isoWeek(d) {
@@ -273,6 +273,81 @@ function renderBoard() {
   }).join("") + `</div>`;
 }
 
+/* ---------- 渲染：项目总览（板块 + 待选池 / 进行中 / 已完成） ---------- */
+const BOARDS = [
+  { key: "SKU", label: "📦 SKU 存货体系", filter: t => t.milestone === "SKU" },
+  { key: "社媒", label: "📱 社媒推广", filter: t => t.milestone === "社媒" },
+  { key: "网站", label: "🌐 网站搭建", filter: t => t.milestone === "网站" },
+  { key: "炸鸡", label: "🍗 炸鸡店（研究）", filter: t => t.project === "炸鸡店(研究)" && !t.milestone },
+  { key: "集市", label: "📍 集市", market: true }
+];
+function ovItem(t) {
+  const claimed = t.owner && t.owner !== "待认领";
+  return `<div class="card ov-item ${claimed ? "is-claimed" : ""}" data-id="${t.id}">
+    <div class="ov-item-top">
+      <div class="ov-item-title">${esc(t.title)}</div>
+      ${t.due ? `<span class="tag due">${esc(t.due)}</span>` : ""}
+    </div>
+    <div class="ov-item-meta">
+      ${claimed ? `<span class="tag owner">👤 ${esc(t.owner)}</span>` : `<span class="tag owner pending">待认领</span>`}
+      ${t.note ? `<span class="ov-note">💡 ${esc(t.note)}</span>` : ""}
+    </div>
+    <div class="ov-item-acts">
+      ${claimed ? "" : `<button class="btn small" data-act="claim">认领到我的 To Do</button>`}
+      ${claimed ? `<button class="btn small ghost" data-act="release">放回待选池</button>` : ""}
+      <button class="btn small" data-act="done">${t.status === "已完成" ? "已完成" : "✓ 完成"}</button>
+    </div>
+  </div>`;
+}
+function overviewSection(b) {
+  if (b.market) {
+    const pending = markets.filter(m => m.status === "商榷中" || !m.event_date);
+    const applied = markets.filter(m => m.status === "已申请" && m.event_date).sort((x, y) => (x.event_date || "").localeCompare(y.event_date || ""));
+    const next = applied[0];
+    const doneItems = applied.reduce((s, m) => s + (m.checklist || []).filter(c => c.done).length, 0);
+    const totalItems = applied.reduce((s, m) => s + (m.checklist || []).length, 0);
+    const pct = totalItems ? Math.round(doneItems / totalItems * 100) : 0;
+    return `<div class="ov-board">
+      <div class="ov-head"><div class="ov-title">${b.label}</div><div class="ov-pct">${pct}%</div></div>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="ov-stats">🟡 商榷中 ${pending.length} · 🟢 已申请 ${applied.length}${next ? ` · 下次：${next.event_date}` : ""}</div>
+      <div class="ov-actions"><button class="btn small" data-goto="market">打开集市日历 →</button></div>
+    </div>`;
+  }
+  const all = tasks.filter(b.filter);
+  const done = all.filter(t => t.status === "已完成");
+  const pending = all.filter(t => t.status !== "已完成");
+  const pool = pending.filter(t => t.owner === "待认领");
+  const active = pending.filter(t => t.owner !== "待认领");
+  const total = all.length;
+  const pct = total ? Math.round(done.length / total * 100) : 0;
+  const items = arr => arr.length ? arr.map(ovItem).join("") : '<div class="ov-empty">—</div>';
+  const doneHTML = done.length ? done.map(t => `<div class="ov-done-item">✓ ${esc(t.title)}${t.owner && t.owner !== "待认领" ? ` <span class="ov-by">${esc(t.owner)}</span>` : ""}</div>`).join("") : '<div class="ov-empty">—</div>';
+  return `<div class="ov-board">
+    <div class="ov-head"><div class="ov-title">${b.label}</div><div class="ov-pct">${pct}%</div></div>
+    <div class="bar"><i style="width:${pct}%"></i></div>
+    <div class="ov-sub s-pool">待选池（例会认领）</div>
+    <div class="ov-pool">${items(pool)}</div>
+    <div class="ov-sub s-active">已认领 · 进行中</div>
+    <div class="ov-active">${items(active)}</div>
+    <div class="ov-sub s-done">已完成</div>
+    <div class="ov-done-list">${doneHTML}</div>
+  </div>`;
+}
+function renderOverview() {
+  const totalAll = tasks.length;
+  const doneAll = tasks.filter(t => t.status === "已完成").length;
+  const pctAll = totalAll ? Math.round(doneAll / totalAll * 100) : 0;
+  return `<div class="overview">
+    <div class="ov-summary">
+      <div class="ov-summary-title">🧭 创业总进度</div>
+      <div class="bar big"><i style="width:${pctAll}%"></i></div>
+      <div class="ov-summary-sub">全部任务 ${doneAll}/${totalAll} 已完成 · 例会时从「待选池」认领到个人 To Do</div>
+    </div>
+    <div class="ov-grid">${BOARDS.map(overviewSection).join("")}</div>
+  </div>`;
+}
+
 /* ---------- 渲染：集市日历 ---------- */
 function marketCard(m) {
   const cl = (m.checklist || []).map((c, i) => `<label class="mck ${c.done ? "done" : ""}"><input type="checkbox" data-mact="check" data-mid="${m.id}" data-idx="${i}" ${c.done ? "checked" : ""}><span>${esc(c.n)}</span></label>`).join("");
@@ -312,10 +387,12 @@ function render() {
   document.getElementById("reminderWrap").innerHTML = reminderHTML();
   document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b.dataset.view === currentView));
   const main = document.getElementById("main");
-  if (currentView === "week") main.innerHTML = renderWeek();
+  if (currentView === "overview") main.innerHTML = renderOverview();
+  else if (currentView === "week") main.innerHTML = renderWeek();
   else if (currentView === "todo") main.innerHTML = renderMyTodo();
   else if (currentView === "market") main.innerHTML = renderMarket();
   else main.innerHTML = renderBoard();
+  document.getElementById("projFilter").style.display = currentView === "overview" ? "none" : "";
   document.getElementById("weekLabel").textContent = "本周 " + isoWeek(new Date());
 }
 async function refresh() { tasks = await loadTasks(); markets = await loadMarkets(); metaCache = await getMeta(); render(); }
@@ -346,13 +423,15 @@ document.getElementById("main").addEventListener("input", async e => {
 });
 document.getElementById("main").addEventListener("click", async e => {
   if (e.target.id === "addMarket") { openMarketModal(); return; }
+  const goto = e.target.closest("[data-goto]"); if (goto) { currentView = goto.dataset.goto; render(); return; }
   const mEl = e.target.closest("[data-mact]"); if (mEl) { await handleMarketClick(mEl); return; }
   const btn = e.target.closest("button[data-act]"); if (!btn) return;
   const card = e.target.closest(".card"); const t = tasks.find(x => x.id === card.dataset.id); if (!t) return;
   const act = btn.dataset.act;
   if (act === "del") { if (confirm("删除该任务？")) { await deleteTask(t.id); await refresh(); } }
   if (act === "done") await markDone(t.id);
-  if (act === "claim") { t.owner = identity; t.status = "本周进行中"; t.claimed_week = isoWeek(new Date()); if (!t.due) t.due = nextMarketDate(); await saveTask(t); await refresh(); toast(identity + " 已认领"); }
+  if (act === "claim") { t.owner = identity; t.status = "本周进行中"; t.claimed_week = isoWeek(new Date()); await saveTask(t); await refresh(); toast(identity + " 已认领到我的 To Do"); }
+  if (act === "release") { t.owner = "待认领"; t.status = "待分配池"; await saveTask(t); await refresh(); toast("已放回待选池"); }
   if (act === "edit") openModal(t);
 });
 
@@ -391,7 +470,7 @@ function openModal(t) {
   document.getElementById("modalTitle").textContent = t ? "编辑任务" : "新建任务";
   document.getElementById("mTitle").value = t ? t.title : "";
   document.getElementById("mProject").value = t ? t.project : "Calabash Lab";
-  document.getElementById("mOwner").value = t ? t.owner : "共同";
+  document.getElementById("mOwner").value = t ? t.owner : "待认领";
   document.getElementById("mStatus").value = t ? t.status : "待分配池";
   document.getElementById("mDue").value = t ? (t.due || "") : "";
   document.getElementById("mMilestone").value = t ? (t.milestone || "") : "";
