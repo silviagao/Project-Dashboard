@@ -80,6 +80,7 @@ main{max-width:1100px;margin:18px auto 0;padding:0 18px;}
 /* ---------- tags ---------- */
 .tag{font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:999px;background:var(--sand-soft);color:#8a6d34;white-space:nowrap;}
 .tag.owner{background:var(--accent-soft);color:var(--accent-d);}
+.tag.owner.pending{background:#F0E2C0;color:#9a7b2e;border:1px dashed #C9A24B;font-weight:800;}
 .tag.proj{background:#EFEAE2;color:#6b6258;}
 .tag.due{background:var(--sand-soft);color:#8a6d34;}
 .tag.due.over{background:var(--clay-soft);color:var(--clay);}
@@ -110,6 +111,8 @@ main{max-width:1100px;margin:18px auto 0;padding:0 18px;}
 .col h2{font-size:14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
 .col .cnt{font-size:12px;font-weight:800;color:#fff;background:var(--muted);border-radius:999px;padding:1px 9px;}
 .cards{display:flex;flex-direction:column;gap:10px;min-height:40px;}
+.col-hint{font-size:11.5px;line-height:1.5;color:#8a6d34;background:#F7F0E1;border:1px dashed #C9A24B;border-radius:10px;padding:8px 10px;margin-bottom:10px;}
+.col-hint b{color:var(--accent-d);}
 .card{background:var(--bg);border-radius:var(--radius-sm);padding:11px;box-shadow:var(--shadow-sm);}
 .card.s-卡点{border-left:4px solid var(--clay);}
 .card.s-已完成{opacity:.72;}

@@ -2,7 +2,7 @@
    数据层：配置 Supabase 后用云端（两人实时同步），否则自动降级为本地 localStorage 预览。
    视图：周视图（日历/时间表）｜ 我的 To Do ｜ 看板 ｜ 集市日历 */
 
-const OWNERS = ["Silvia", "Haihong", "共同"];
+const OWNERS = ["待认领", "Silvia", "Haihong", "共同"];
 const PROJECTS = ["Calabash Lab", "炸鸡店(研究)"];
 const STATUSES = ["待分配池", "本周进行中", "卡点", "已完成"];
 const MILESTONES = { SKU: "SKU体系上线", 社媒: "社媒破粉", 网站: "网站上线" };
@@ -81,7 +81,7 @@ async function getMeta() {
 }
 async function setMeta(m) { if (useCloud) await sb.from("meta").upsert({ key: "streaks", value: m }); else localStorage.setItem("streaks", JSON.stringify(m)); }
 async function bumpStreak(owner) {
-  if (!owner || owner === "共同") return;
+  if (!owner || owner === "共同" || owner === "待认领") return;
   const m = await getMeta(); const wk = isoWeek(new Date());
   const s = m[owner] || { count: 0, lastWeek: "" };
   if (s.lastWeek === wk) { /* 本周已记 */ }
@@ -120,38 +120,38 @@ async function seedIfEmpty() {
   if (existing.length > 0) return;
   const d = dateStr;
   const seeds = [
-    // —— SKU 体系（建议明细，owner 可改、可增删）——
-    { project: "Calabash Lab", title: "SKU-1 盘点现有存货（厂家/型号/数量/进货成本清单）", owner: "Haihong", status: "本周进行中", progress: 10, due: d(3), milestone: "SKU", note: "Silvia 定规则框架，Haihong 主建" },
-    { project: "Calabash Lab", title: "SKU-2 定编码规则（如 CL-RC-001-R）", owner: "Haihong", status: "待分配池", progress: 0, due: d(4), milestone: "SKU" },
-    { project: "Calabash Lab", title: "SKU-3 定数据结构（SKU/名称/厂家/进货价/数量/库位/状态/图片）", owner: "共同", status: "待分配池", progress: 0, due: d(5), milestone: "SKU" },
-    { project: "Calabash Lab", title: "SKU-4 搭建库存台账骨架（Sheets 或看板模块）", owner: "Haihong", status: "待分配池", progress: 0, due: d(7), milestone: "SKU" },
-    { project: "Calabash Lab", title: "SKU-5 录入首批存货数据", owner: "Haihong", status: "待分配池", progress: 0, due: d(9), milestone: "SKU" },
-    { project: "Calabash Lab", title: "SKU-6 设补货触发（低于阈值标“该补货”）", owner: "Haihong", status: "待分配池", progress: 0, due: d(11), milestone: "SKU" },
-    { project: "Calabash Lab", title: "SKU-7 与销售联动（集市卖出扣库存、算账）", owner: "共同", status: "待分配池", progress: 0, due: d(13), milestone: "SKU" },
-    { project: "Calabash Lab", title: "SKU-8 周度库存复盘（准确率、周转率）", owner: "共同", status: "待分配池", progress: 0, due: d(15), milestone: "SKU" },
+    // —— SKU 体系（预置选项：先“待认领”，讨论后增/删并认领）——
+    { project: "Calabash Lab", title: "SKU-1 盘点现有存货（厂家/型号/数量/进货成本清单）", owner: "待认领", status: "待分配池", progress: 0, due: d(3), milestone: "SKU", note: "建议：Haihong 主建，Silvia 定框架" },
+    { project: "Calabash Lab", title: "SKU-2 定编码规则（如 CL-RC-001-R）", owner: "待认领", status: "待分配池", progress: 0, due: d(4), milestone: "SKU", note: "建议：Haihong" },
+    { project: "Calabash Lab", title: "SKU-3 定数据结构（SKU/名称/厂家/进货价/数量/库位/状态/图片）", owner: "待认领", status: "待分配池", progress: 0, due: d(5), milestone: "SKU", note: "建议：共同" },
+    { project: "Calabash Lab", title: "SKU-4 搭建库存台账骨架（Sheets 或看板模块）", owner: "待认领", status: "待分配池", progress: 0, due: d(7), milestone: "SKU", note: "建议：Haihong" },
+    { project: "Calabash Lab", title: "SKU-5 录入首批存货数据", owner: "待认领", status: "待分配池", progress: 0, due: d(9), milestone: "SKU", note: "建议：Haihong" },
+    { project: "Calabash Lab", title: "SKU-6 设补货触发（低于阈值标“该补货”）", owner: "待认领", status: "待分配池", progress: 0, due: d(11), milestone: "SKU", note: "建议：Haihong" },
+    { project: "Calabash Lab", title: "SKU-7 与销售联动（集市卖出扣库存、算账）", owner: "待认领", status: "待分配池", progress: 0, due: d(13), milestone: "SKU", note: "建议：共同" },
+    { project: "Calabash Lab", title: "SKU-8 周度库存复盘（准确率、周转率）", owner: "待认领", status: "待分配池", progress: 0, due: d(15), milestone: "SKU", note: "建议：共同" },
     // —— 社媒推广 ——
-    { project: "Calabash Lab", title: "社媒-1 定平台与定位（IG/TikTok/FB/小红书 + 内容调性）", owner: "Silvia", status: "本周进行中", progress: 5, due: d(3), milestone: "社媒" },
-    { project: "Calabash Lab", title: "社媒-2 账号搭建（注册完善主页、简介、链接）", owner: "Silvia", status: "待分配池", progress: 0, due: d(5), milestone: "社媒" },
-    { project: "Calabash Lab", title: "社媒-3 内容规划（栏目化 + 内容日历）", owner: "Silvia", status: "待分配池", progress: 0, due: d(7), milestone: "社媒" },
-    { project: "Calabash Lab", title: "社媒-4 制作首批内容（手机拍剪 N 条）", owner: "Silvia", status: "待分配池", progress: 0, due: d(9), milestone: "社媒" },
-    { project: "Calabash Lab", title: "社媒-5 发布节奏（每周 X 条，定谁拍/剪/发）", owner: "共同", status: "待分配池", progress: 0, due: d(11), milestone: "社媒" },
-    { project: "Calabash Lab", title: "社媒-6 互动涨粉（回评论、现场引导关注）", owner: "Silvia", status: "待分配池", progress: 0, due: d(13), milestone: "社媒" },
-    { project: "Calabash Lab", title: "社媒-7 数据复盘（周看粉增/互动，调内容）", owner: "Silvia", status: "待分配池", progress: 0, due: d(15), milestone: "社媒" },
-    { project: "Calabash Lab", title: "社媒-8 引流销售（主页挂购买/集市/网站入口）", owner: "共同", status: "待分配池", progress: 0, due: d(17), milestone: "社媒" },
+    { project: "Calabash Lab", title: "社媒-1 定平台与定位（IG/TikTok/FB/小红书 + 内容调性）", owner: "待认领", status: "待分配池", progress: 0, due: d(3), milestone: "社媒", note: "建议：Silvia 主导" },
+    { project: "Calabash Lab", title: "社媒-2 账号搭建（注册完善主页、简介、链接）", owner: "待认领", status: "待分配池", progress: 0, due: d(5), milestone: "社媒", note: "建议：Silvia" },
+    { project: "Calabash Lab", title: "社媒-3 内容规划（栏目化 + 内容日历）", owner: "待认领", status: "待分配池", progress: 0, due: d(7), milestone: "社媒", note: "建议：Silvia" },
+    { project: "Calabash Lab", title: "社媒-4 制作首批内容（手机拍剪 N 条）", owner: "待认领", status: "待分配池", progress: 0, due: d(9), milestone: "社媒", note: "建议：共同" },
+    { project: "Calabash Lab", title: "社媒-5 发布节奏（每周 X 条，定谁拍/剪/发）", owner: "待认领", status: "待分配池", progress: 0, due: d(11), milestone: "社媒", note: "建议：共同" },
+    { project: "Calabash Lab", title: "社媒-6 互动涨粉（回评论、现场引导关注）", owner: "待认领", status: "待分配池", progress: 0, due: d(13), milestone: "社媒", note: "建议：Silvia" },
+    { project: "Calabash Lab", title: "社媒-7 数据复盘（周看粉增/互动，调内容）", owner: "待认领", status: "待分配池", progress: 0, due: d(15), milestone: "社媒", note: "建议：Silvia" },
+    { project: "Calabash Lab", title: "社媒-8 引流销售（主页挂购买/集市/网站入口）", owner: "待认领", status: "待分配池", progress: 0, due: d(17), milestone: "社媒", note: "建议：共同" },
     // —— 网站搭建 ——
-    { project: "Calabash Lab", title: "网站-1 定目标与范围（展示站 vs 电商站 MVP）", owner: "共同", status: "待分配池", progress: 0, due: d(6), milestone: "网站" },
-    { project: "Calabash Lab", title: "网站-2 选技术（静态站 + 免费托管）", owner: "Haihong", status: "待分配池", progress: 0, due: d(8), milestone: "网站" },
-    { project: "Calabash Lab", title: "网站-3 信息架构（首页/产品/关于/购买指引/联系）", owner: "Silvia", status: "待分配池", progress: 0, due: d(10), milestone: "网站" },
-    { project: "Calabash Lab", title: "网站-4 设计稿（布局草图、配色、移动端）", owner: "共同", status: "待分配池", progress: 0, due: d(12), milestone: "网站" },
-    { project: "Calabash Lab", title: "网站-5 开发页面（搭页面 + 产品展示 + 表单）", owner: "Haihong", status: "待分配池", progress: 0, due: d(16), milestone: "网站" },
-    { project: "Calabash Lab", title: "网站-6 内容填充（产品图、文案，从社媒拉素材）", owner: "Silvia", status: "待分配池", progress: 0, due: d(18), milestone: "网站" },
-    { project: "Calabash Lab", title: "网站-7 部署上线（绑域名可选 + 免费托管）", owner: "Haihong", status: "待分配池", progress: 0, due: d(21), milestone: "网站" },
-    { project: "Calabash Lab", title: "网站-8 推广接入（社媒↔网站互链、集市二维码）", owner: "共同", status: "待分配池", progress: 0, due: d(23), milestone: "网站" },
-    { project: "Calabash Lab", title: "网站-9 维护机制（谁更新、频率）", owner: "共同", status: "待分配池", progress: 0, due: d(25), milestone: "网站" },
-    // —— 炸鸡店（研究）——
-    { project: "炸鸡店(研究)", title: "炸鸡配方初步研发（第一轮试验）", owner: "Haihong", status: "待分配池", progress: 0, due: d(9) },
-    { project: "炸鸡店(研究)", title: "市场/竞品调研（定价与空白点）", owner: "Silvia", status: "待分配池", progress: 0, due: d(10) },
-    { project: "炸鸡店(研究)", title: "商业计划 / 资金 / 合规初步", owner: "Silvia", status: "待分配池", progress: 0, due: d(14) }
+    { project: "Calabash Lab", title: "网站-1 定目标与范围（展示站 vs 电商站 MVP）", owner: "待认领", status: "待分配池", progress: 0, due: d(6), milestone: "网站", note: "建议：共同" },
+    { project: "Calabash Lab", title: "网站-2 选技术（静态站 + 免费托管）", owner: "待认领", status: "待分配池", progress: 0, due: d(8), milestone: "网站", note: "建议：Haihong" },
+    { project: "Calabash Lab", title: "网站-3 信息架构（首页/产品/关于/购买指引/联系）", owner: "待认领", status: "待分配池", progress: 0, due: d(10), milestone: "网站", note: "建议：Silvia" },
+    { project: "Calabash Lab", title: "网站-4 设计稿（布局草图、配色、移动端）", owner: "待认领", status: "待分配池", progress: 0, due: d(12), milestone: "网站", note: "建议：共同" },
+    { project: "Calabash Lab", title: "网站-5 开发页面（搭页面 + 产品展示 + 表单）", owner: "待认领", status: "待分配池", progress: 0, due: d(16), milestone: "网站", note: "建议：Haihong" },
+    { project: "Calabash Lab", title: "网站-6 内容填充（产品图、文案，从社媒拉素材）", owner: "待认领", status: "待分配池", progress: 0, due: d(18), milestone: "网站", note: "建议：Silvia" },
+    { project: "Calabash Lab", title: "网站-7 部署上线（绑域名可选 + 免费托管）", owner: "待认领", status: "待分配池", progress: 0, due: d(21), milestone: "网站", note: "建议：Haihong" },
+    { project: "Calabash Lab", title: "网站-8 推广接入（社媒↔网站互链、集市二维码）", owner: "待认领", status: "待分配池", progress: 0, due: d(23), milestone: "网站", note: "建议：共同" },
+    { project: "Calabash Lab", title: "网站-9 维护机制（谁更新、频率）", owner: "待认领", status: "待分配池", progress: 0, due: d(25), milestone: "网站", note: "建议：共同" },
+    // —— 炸鸡店（研究，预置选项）——
+    { project: "炸鸡店(研究)", title: "炸鸡配方初步研发（第一轮试验）", owner: "待认领", status: "待分配池", progress: 0, due: d(9), note: "建议：Haihong" },
+    { project: "炸鸡店(研究)", title: "市场/竞品调研（定价与空白点）", owner: "待认领", status: "待分配池", progress: 0, due: d(10), note: "建议：Silvia" },
+    { project: "炸鸡店(研究)", title: "商业计划 / 资金 / 合规初步", owner: "待认领", status: "待分配池", progress: 0, due: d(14), note: "建议：Silvia" }
   ];
   for (const s of seeds) await persist(s);
 }
@@ -179,7 +179,7 @@ function reminderHTML() {
   const day = new Date().getDay();
   if (![3, 4, 5, 6].includes(day)) return "";
   const wk = isoWeek(new Date());
-  const msgs = OWNERS.filter(o => o !== "共同").filter(o =>
+  const msgs = OWNERS.filter(o => o !== "共同" && o !== "待认领").filter(o =>
     !tasks.some(t => t.owner === o && t.status === "本周进行中" && t.updated_week === wk));
   return msgs.length ? `<div class="reminder">系统提醒：<b>${msgs.join("、")}</b> 本周还没更新进度（周三起触发，非人工催促）。</div>` : "";
 }
@@ -190,7 +190,7 @@ function dayCard(t) {
     <label class="ck"><input type="checkbox" data-complete="${t.id}"><span></span></label>
     <div class="dc-body">
       <div class="dc-title">${esc(t.title)}</div>
-      <div class="dc-meta"><span class="tag owner">${esc(t.owner)}</span><span class="tag proj">${esc(t.project)}</span>${t.milestone ? `<span class="tag">★${esc(MILESTONES[t.milestone])}</span>` : ""}</div>
+      <div class="dc-meta"><span class="tag owner ${t.owner==='待认领'?'pending':''}">${esc(t.owner)}</span><span class="tag proj">${esc(t.project)}</span>${t.milestone ? `<span class="tag">★${esc(MILESTONES[t.milestone])}</span>` : ""}</div>
     </div></div>`;
 }
 function weekBlock(off, label) {
@@ -242,7 +242,7 @@ function cardHTML(t) {
     <div class="title">${esc(t.title)}</div>
     <div class="meta">
       <span class="tag proj">${esc(t.project)}</span>
-      <span class="tag owner">${esc(t.owner)}</span>
+      <span class="tag owner ${t.owner==='待认领'?'pending':''}">${esc(t.owner)}</span>
       ${t.due ? `<span class="tag due ${over ? "over" : ""}">截止 ${esc(t.due)}</span>` : ""}
       ${t.milestone ? `<span class="tag">★${esc(MILESTONES[t.milestone])}</span>` : ""}
     </div>
@@ -268,7 +268,8 @@ function renderBoard() {
   const list = tasks.filter(t => proj === "全部" || t.project === proj);
   return `<div class="board">` + STATUSES.map(s => {
     const col = list.filter(t => t.status === s);
-    return `<div class="col"><h2>${s} <span class="cnt">${col.length}</span></h2><div class="cards">${col.map(cardHTML).join("") || '<div class="empty">—</div>'}</div></div>`;
+    const hint = s === "待分配池" ? `<div class="col-hint">预置待办选项：讨论后<b>增</b>（＋新建）/<b>删</b>，点卡片【认领】分配给自己 →</div>` : "";
+    return `<div class="col"><h2>${s} <span class="cnt">${col.length}</span></h2>${hint}<div class="cards">${col.map(cardHTML).join("") || '<div class="empty">—</div>'}</div></div>`;
   }).join("") + `</div>`;
 }
 
